@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Block Blast!">
+    <meta name="theme-color" content="#141838">
+    <title>Block Blast! - Không Quảng Cáo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Fredoka', sans-serif;
+            background: radial-gradient(circle at 50% 25%, #2b3570 0%, #171c42 65%, #0f132e 100%);
+            color: #ffffff;
+            touch-action: none;
+        }
+
+        /* Main container */
+        #app-wrapper {
+            width: 100%;
+            max-width: 480px;
+            height: 100dvh;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 12px 16px 20px 16px;
+            position: relative;
+        }
+
+        /* 8x8 Grid Board */
+        #board-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-height: 54dvh;
+            margin: 0 auto;
+            background: #141838;
+            border-radius: 18px;
+            padding: 8px;
+            box-shadow: 
+                inset 0 6px 14px rgba(0, 0, 0, 0.65),
+                0 10px 25px rgba(0, 0, 0, 0.45),
+                0 0 0 3px #283166;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 5px;
+        }
+
+        .board-cell {
+            background: #1e244d;
+            border-radius: 7px;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+            transition: transform 0.12s ease, background-color 0.12s ease;
+        }
+
+        /* 3D Glossy Block Appearance */
+        .block-tile {
+            width: 100%;
+            height: 100%;
+            border-radius: 7px;
+            position: relative;
+            box-shadow: 
+                inset 0 4px 2px rgba(255, 255, 255, 0.45),
+                inset 0 -4px 3px rgba(0, 0, 0, 0.38),
+                inset 3px 0 2px rgba(255, 255, 255, 0.2),
+                inset -3px 0 2px rgba(0, 0, 0, 0.2),
+                0 2px 4px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Inner glossy bevel */
+        .block-tile::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            right: 15%;
+            bottom: 15%;
+            border-radius: 4px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 60%, rgba(0,0,0,0.12) 100%);
+            pointer-events: none;
+        }
+
+        /* Preview ghost shadow on valid cells */
+        .ghost-tile {
+            width: 100%;
+            height: 100%;
+            border-radius: 7px;
+            opacity: 0.45;
+            transform: scale(0.95);
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+            will-change: transform, opacity;
+        }
+
+        /* Highlight pulse when row/col is about to clear */
+        .will-clear-highlight {
+            animation: clearPulse 0.45s infinite alternate ease-in-out;
+            z-index: 2;
+        }
+
+        @keyframes clearPulse {
+            from {
+                filter: brightness(1.25) saturate(1.2);
+                transform: scale(0.96);
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            }
+            to {
+                filter: brightness(1.75) saturate(1.4);
+                transform: scale(1.03);
+                box-shadow: 0 0 18px rgba(255, 255, 255, 0.95);
+            }
+        }
+
+        /* Pop animation on placement */
+        .placed-pop {
+            animation: popTile 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes popTile {
+            0% { transform: scale(0.6); }
+            70% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        /* Shatter animation when clearing lines */
+        .clearing-anim {
+            animation: shatterOut 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            z-index: 5;
+        }
+
+        @keyframes shatterOut {
+            0% {
+                transform: scale(1.1);
+                filter: brightness(2);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2) rotate(8deg);
+                filter: brightness(2.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* Dock area for 3 spawn pieces */
+        #dock-container {
+            width: 100%;
+            height: 135px;
+            background: rgba(20, 24, 56, 0.65);
+            border: 2px solid rgba(62, 75, 148, 0.45);
+            border-radius: 18px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            align-items: center;
+            justify-items: center;
+            padding: 8px;
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.35);
+        }
+
+        .dock-slot {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: grab;
+        }
+
+        .dock-slot:active {
+            cursor: grabbing;
+        }
+
+        .piece-preview {
+            display: grid;
+            gap: 3px;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+            pointer-events: none;
+        }
+
+        .spawn-bounce {
+            animation: spawnIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes spawnIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Floating Dragged Piece - Outer wrapper tracks 1:1 with zero transition */
+        #drag-proxy {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 999;
+            display: none;
+            touch-action: none;
+            will-change: transform;
+            transform: translate3d(-9999px, -9999px, 0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        /* Inner container handles smooth scale/lift animation independently of X/Y translation */
+        #drag-proxy-inner {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            will-change: transform;
+            filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.5));
+            transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+            transform-origin: center center;
+        }
+
+        /* Screen Shake Effect */
+        .screen-shake {
+            animation: shakeBoard 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shakeBoard {
+            10%, 90% { transform: translate3d(-2px, 1px, 0); }
+            20%, 80% { transform: translate3d(3px, -2px, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 2px, 0); }
+            40%, 60% { transform: translate3d(4px, -1px, 0); }
+        }
+
+        /* Floating Combo & Score Popups */
+        .floating-banner {
+            position: absolute;
+            left: 50%;
+            top: 45%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 60;
+            text-align: center;
+            white-space: nowrap;
+            animation: floatBanner 1.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes floatBanner {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -20%) scale(0.4) rotate(-6deg);
+            }
+            22% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.18) rotate(3deg);
+            }
+            40% {
+                transform: translate(-50%, -55%) scale(1.0) rotate(0deg);
+            }
+            80% {
+                opacity: 1;
+                transform: translate(-50%, -75%) scale(1.0);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -105%) scale(0.85);
+            }
+        }
+
+        .stroke-text {
+            -webkit-text-stroke: 2px #0f132e;
+            text-shadow: 0 5px 0 #0f132e, 0 8px 16px rgba(0,0,0,0.6);
+        }
+
+        /* UI Buttons */
+        .game-btn {
+            background: linear-gradient(180deg, #3b488c 0%, #273169 100%);
+            border: 2px solid #5263b8;
+            box-shadow: 0 4px 0 #161c42, 0 6px 12px rgba(0,0,0,0.35);
+            transition: all 0.1s ease;
+        }
+
+        .game-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #161c42;
+        }
+
+        .cta-btn {
+            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%);
+            border: 2px solid #6fffa3;
+            box-shadow: 0 5px 0 #0b665e, 0 8px 20px rgba(17, 153, 142, 0.5);
+            transition: all 0.1s ease;
+        }
+
+        .cta-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #0b665e;
+        }
+
+        /* Particle Canvas */
+        #fx-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Custom Scrollbar for Modals */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 19, 46, 0.5);
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #4556b5;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Particle Effects Canvas -->
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- Dragging Block Proxy (Separated outer X/Y tracker & inner scale wrapper) -->
+    <div id="drag-proxy">
+        <div id="drag-proxy-inner"></div>
+    </div>
+
+    <!-- Main Game Wrapper -->
+    <div id="app-wrapper">
+        
+        <!-- Top Header Bar -->
+        <header class="w-full flex items-center justify-between pt-1 gap-1.5">
+            <!-- Best Score (Kỷ lục) -->
+            <div class="flex items-center gap-2 bg-[#161b3d]/90 border-2 border-[#2d3875] rounded-2xl px-3 py-1.5 shadow-lg shrink-0">
+                <!-- Crown SVG -->
+                <svg class="w-5 h-5 text-amber-400 drop-shadow shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5ZM19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V18H19V19Z"/>
+                </svg>
+                <div>
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-indigo-300 leading-none">Kỷ lục</div>
+                    <div id="best-score-el" class="text-base sm:text-lg font-extrabold text-amber-400 leading-tight">0</div>
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <!-- History & Saved Games Button -->
+                <button id="history-btn" class="game-btn h-10 px-2.5 rounded-xl flex items-center gap-1 text-white text-xs font-bold" title="Lịch Sử & Lưu Ván Cờ">
+                    <svg class="w-4 h-4 text-cyan-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="hidden sm:inline">Lịch sử</span>
+                </button>
+
+                <!-- Mobile Repo & Install App Button -->
+                <button id="repo-btn" class="game-btn h-10 px-2.5 rounded-xl flex items-center gap-1 text-white text-xs font-bold border-emerald-400/60" title="Repo Di Động & Cài App">
+                    <svg class="w-4 h-4 text-emerald-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <span>Repo/App</span>
+                </button>
+
+                <!-- Sound Mute/Unmute Toggle -->
+                <button id="sound-btn" class="game-btn w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" title="Bật/Tắt Âm Thanh">
+                    <svg id="icon-sound-on" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                    </svg>
+                    <svg id="icon-sound-off" class="w-5 h-5 hidden text-rose-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                    </svg>
+                </button>
+
+                <!-- Restart Button -->
+                <button id="restart-btn" class="game-btn w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" title="Ván Mới">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Current Score & Status Bar -->
+        <div class="text-center my-0.5 relative flex flex-col items-center justify-center">
+            <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-[11px] font-bold uppercase tracking-widest text-indigo-300/80">Điểm số</span>
+                <!-- Combo Badge Indicator -->
+                <div id="combo-indicator" class="hidden items-center bg-gradient-to-r from-orange-500 to-pink-500 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-md animate-bounce">
+                    COMBO x2
+                </div>
+            </div>
+            <div id="current-score-el" class="text-5xl sm:text-6xl font-extrabold text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)] tracking-tight leading-none">
+                0
+            </div>
+        </div>
+
+        <!-- 8x8 Board Grid -->
+        <div class="relative w-full flex items-center justify-center">
+            <div id="board-container"></div>
+            <div id="banner-layer" class="inset-0 pointer-events-none"></div>
+        </div>
+
+        <!-- Bottom Piece Spawner Dock -->
+        <div id="dock-container">
+            <div class="dock-slot" data-slot="0"></div>
+            <div class="dock-slot" data-slot="1"></div>
+            <div class="dock-slot" data-slot="2"></div>
+        </div>
+
+    </div>
+
+    <!-- Confirm New Game Modal (Appears when resetting an active game) -->
+    <div id="confirm-reset-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[110] hidden items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-[#252f69] to-[#161c42] border-4 border-[#4556b5] rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl">
+            <h3 class="text-2xl font-extrabold text-white mb-1">Chơi ván mới?</h3>
+            <p class="text-indigo-200 text-xs mb-4">Ván đang chơi hiện tại sẽ được lưu vào Lịch sử trước khi tạo bàn cờ mới.</p>
+            <div class="flex gap-2.5">
+                <button id="cancel-reset-btn" class="game-btn flex-1 py-2.5 rounded-xl font-bold text-sm text-indigo-200">Tiếp tục chơi</button>
+                <button id="confirm-reset-btn" class="cta-btn flex-1 py-2.5 rounded-xl font-extrabold text-sm text-white">Ván mới</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History & Saved Snapshots Modal -->
+    <div id="history-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[105] hidden items-center justify-center p-3 sm:p-4">
+        <div class="bg-gradient-to-b from-[#252f69] to-[#141838] border-4 border-[#4556b5] rounded-3xl max-w-md w-full max-h-[86dvh] flex flex-col p-4 sm:p-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-indigo-800/70 pb-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <h2 class="text-xl font-extrabold text-white">Lịch Sử & Lưu Trạng Thái</h2>
+                </div>
+                <button id="close-history-btn" class="w-8 h-8 rounded-lg bg-indigo-950/80 text-indigo-300 hover:text-white flex items-center justify-center font-bold">✕</button>
+            </div>
+
+            <!-- Save Current Board Snapshot Box -->
+            <div class="bg-[#111536] border border-indigo-700/60 rounded-2xl p-3 mb-3 flex items-center justify-between gap-2">
+                <div class="text-left">
+                    <div class="text-xs font-bold text-cyan-300">Lưu mốc ván đang chơi (Snapshot)</div>
+                    <div class="text-[11px] text-indigo-300">Lưu lại bàn cờ hiện tại để khôi phục bất cứ lúc nào</div>
+                </div>
+                <button id="save-snapshot-btn" class="cta-btn px-3 py-2 rounded-xl text-xs font-extrabold text-white shrink-0">
+                    + Lưu Mốc Này
+                </button>
+            </div>
+
+            <!-- Tabs: Snapshots vs Completed History -->
+            <div class="flex gap-2 mb-3">
+                <button id="tab-snapshots-btn" class="flex-1 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 text-white">Các Mốc Đã Lưu (Chơi Tiếp)</button>
+                <button id="tab-matches-btn" class="flex-1 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-950/70 text-indigo-300">Lịch Sử Ván Đấu</button>
+            </div>
+
+            <!-- List Content -->
+            <div id="snapshots-list-container" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1"></div>
+            <div id="matches-list-container" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1 hidden"></div>
+
+            <div class="mt-3 pt-2 border-t border-indigo-900/60 flex justify-between items-center text-[11px] text-indigo-300">
+                <span id="storage-status-text">Tự động lưu sau mỗi bước đi</span>
+                <button id="clear-history-btn" class="text-rose-400 hover:underline font-semibold">Xóa lịch sử</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Repo (Flutter / Capacitor / PWA) Modal -->
+    <div id="repo-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[105] hidden items-center justify-center p-3 sm:p-4">
+        <div class="bg-gradient-to-b from-[#252f69] to-[#141838] border-4 border-[#4556b5] rounded-3xl max-w-lg w-full max-h-[88dvh] flex flex-col p-4 sm:p-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-indigo-800/70 pb-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <h2 class="text-lg sm:text-xl font-extrabold text-white">Repo Di Động & Cài App (iOS / Android)</h2>
+                </div>
+                <button id="close-repo-btn" class="w-8 h-8 rounded-lg bg-indigo-950/80 text-indigo-300 hover:text-white flex items-center justify-center font-bold">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scroll space-y-3 pr-1 text-left text-xs text-indigo-100">
+                <!-- Method 1: Instant Mobile PWA Install -->
+                <div class="bg-[#111536] border border-emerald-500/40 rounded-2xl p-3.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-emerald-300 font-extrabold text-sm">Cách 1: Cài trực tiếp lên Điện Thoại (Không cần Xcode)</span>
+                        <span class="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">Khuyên dùng</span>
+                    </div>
+                    <p class="text-indigo-200 mb-2 leading-relaxed">
+                        Trò chơi đã tích hợp sẵn chuẩn <b>PWA Fullscreen</b> và lưu trữ Offline. Bạn có thể thêm thẳng ra màn hình chính:
+                    </p>
+                    <ul class="list-disc list-inside space-y-1 text-indigo-200/90">
+                        <li><b>iPhone / iPad (Safari):</b> Nhấn nút <b>Chia sẻ (Share)</b> ở thanh dưới cùng ➔ Chọn <b>"Thêm vào MH chính" (Add to Home Screen)</b>.</li>
+                        <li><b>Android (Chrome):</b> Nhấn biểu tượng <b>3 chấm ⋮</b> góc phải ➔ Chọn <b>"Cài đặt ứng dụng" (Install App)</b>.</li>
+                    </ul>
+                    <div class="mt-2.5 flex gap-2">
+                        <button id="download-html-btn" class="cta-btn flex-1 py-2 rounded-xl font-extrabold text-white text-xs flex items-center justify-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Tải file index.html độc lập
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Method 2: Native Mobile Repository (Flutter / Capacitor) -->
+                <div class="bg-[#111536] border border-indigo-700/60 rounded-2xl p-3.5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-cyan-300 font-extrabold text-sm">Cách 2: Mã nguồn Repo Flutter & Capacitor (.apk / .ipa)</span>
+                        <button id="copy-repo-btn" class="game-btn px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-300">
+                            Sao chép Code
+                        </button>
+                    </div>
+                    <p class="text-indigo-200 mb-2">
+                        Cấu trúc dự án di động chuẩn giúp bạn đóng gói file <code class="text-amber-300">index.html</code> này thành ứng dụng gốc cho iOS & Android:
+                    </p>
+                    <pre id="repo-code-block" class="bg-[#0a0d24] border border-indigo-900/80 rounded-xl p-2.5 text-[11px] font-mono text-emerald-300 overflow-x-auto custom-scroll leading-relaxed select-all">block-blast-mobile/
+├── assets/
+│   └── index.html          # File game đã tải ở nút trên
+├── pubspec.yaml            # Cấu hình Flutter
+└── lib/
+    └── main.dart           # Khởi chạy Offline WebView
+
+# --- FILE: pubspec.yaml ---
+name: block_blast_noads
+description: Block Blast Offline No Ads
+version: 1.0.0+1
+environment:
+  sdk: "&gt;=3.0.0 &lt;4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.7.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/index.html
+
+# --- FILE: lib/main.dart ---
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  runApp(const BlockBlastApp());
+}
+
+class BlockBlastApp extends StatelessWidget {
+  const BlockBlastApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: GameScreen(),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+  @override
+  State&lt;GameScreen&gt; createState() =&gt; _GameScreenState();
+}
+
+class _GameScreenState extends State&lt;GameScreen&gt; {
+  late final WebViewController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF141838))
+      ..loadFlutterAsset('assets/index.html');
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF141838),
+      body: SafeArea(child: WebViewWidget(controller: _controller)),
+    );
+  }
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-gradient-to-b from-[#252f69] to-[#161c42] border-4 border-[#4556b5] rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl transform scale-95 transition-transform duration-300" id="modal-card">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-rose-500/20 border-2 border-rose-400/40 flex items-center justify-center text-rose-400">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+
+            <h2 class="text-3xl font-extrabold text-white tracking-wide mb-1 stroke-text">Hết nước đi!</h2>
+            <p class="text-indigo-200 text-sm mb-5">Không còn ô trống phù hợp trên bàn cờ</p>
+
+            <div class="bg-[#111536] border-2 border-[#2b3570] rounded-2xl p-4 mb-5 space-y-3">
+                <div class="flex justify-between items-center border-b border-indigo-900/60 pb-2.5">
+                    <span class="text-indigo-300 font-semibold text-sm uppercase">Điểm của bạn</span>
+                    <span id="final-score-el" class="text-2xl font-extrabold text-white">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-amber-300 font-semibold text-sm uppercase flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5ZM19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V18H19V19Z"/>
+                        </svg>
+                        Kỷ lục
+                    </span>
+                    <span id="final-best-el" class="text-2xl font-extrabold text-amber-400">0</span>
+                </div>
+            </div>
+
+            <button id="play-again-btn" class="cta-btn w-full py-3.5 rounded-2xl text-xl font-extrabold text-white uppercase tracking-wider flex items-center justify-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Chơi lại
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**************************************************************
+         * 1. SOUND SYNTHESIZER (Web Audio API - 100% Self-Contained)
+         **************************************************************/
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                return this.muted;
+            }
+
+            playTone(freq, type, duration, startTime = 0, vol = 0.18, slideFreq = null) {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime + startTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                if (slideFreq) {
+                    osc.frequency.exponentialRampToValueAtTime(slideFreq, now + duration);
+                }
+
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            pickup() {
+                this.playTone(320, 'sine', 0.09, 0, 0.16, 520);
+            }
+
+            returnDock() {
+                this.playTone(360, 'sine', 0.08, 0, 0.12, 220);
+            }
+
+            place() {
+                this.playTone(210, 'triangle', 0.11, 0, 0.22, 140);
+                this.playTone(420, 'sine', 0.07, 0.02, 0.12, 500);
+            }
+
+            clearLines(linesCount, comboCount) {
+                const baseNotes = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.5];
+                const count = Math.min(linesCount + 2, 6);
+                const pitchBoost = Math.min(comboCount * 40, 280);
+
+                for (let i = 0; i < count; i++) {
+                    const freq = baseNotes[i % baseNotes.length] + pitchBoost;
+                    this.playTone(freq, 'triangle', 0.26, i * 0.055, 0.2);
+                    this.playTone(freq * 1.5, 'sine', 0.22, i * 0.055 + 0.02, 0.09);
+                }
+            }
+
+            gameOver() {
+                const notes = [392.0, 349.23, 329.63, 261.63];
+                notes.forEach((f, idx) => {
+                    this.playTone(f, 'sawtooth', 0.32, idx * 0.14, 0.12);
+                });
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        /**************************************************************
+         * 2. COLOR PALETTE & POLYOMINO SHAPES
+         **************************************************************/
+        const BLOCK_COLORS = {
+            red:    { bg: 'linear-gradient(145deg, #ff5e62 0%, #e52d27 100%)', hex: '#ff4b4b' },
+            orange: { bg: 'linear-gradient(145deg, #ff9966 0%, #ff5e62 100%)', hex: '#ff8040' },
+            yellow: { bg: 'linear-gradient(145deg, #ffd200 0%, #f7971e 100%)', hex: '#ffc400' },
+            green:  { bg: 'linear-gradient(145deg, #56ab2f 0%, #28a745 100%)', hex: '#42d65c' },
+            cyan:   { bg: 'linear-gradient(145deg, #00c6ff 0%, #0072ff 100%)', hex: '#00b4ff' },
+            blue:   { bg: 'linear-gradient(145deg, #4776e6 0%, #2b44ff 100%)', hex: '#4776e6' },
+            purple: { bg: 'linear-gradient(145deg, #b721ff 0%, #7a12ff 100%)', hex: '#a838ff' }
+        };
+
+        const COLOR_KEYS = Object.keys(BLOCK_COLORS);
+
+        // Complete set of classic Block Blast polyomino matrices
+        const SHAPES_POOL = [
+            // Single & Dominoes
+            { matrix: [[1]], weight: 4 },
+            { matrix: [[1, 1]], weight: 5 },
+            { matrix: [[1], [1]], weight: 5 },
+
+            // Trominoes (1x3, 3x1, 2x2 corners)
+            { matrix: [[1, 1, 1]], weight: 6 },
+            { matrix: [[1], [1], [1]], weight: 6 },
+            { matrix: [[1, 1], [1, 0]], weight: 5 },
+            { matrix: [[1, 1], [0, 1]], weight: 5 },
+            { matrix: [[1, 0], [1, 1]], weight: 5 },
+            { matrix: [[0, 1], [1, 1]], weight: 5 },
+
+            // Tetrominoes (1x4, 2x2, L, T, Z/S)
+            { matrix: [[1, 1, 1, 1]], weight: 4 },
+            { matrix: [[1], [1], [1], [1]], weight: 4 },
+            { matrix: [[1, 1], [1, 1]], weight: 7 },
+
+            // L-shapes (3x2)
+            { matrix: [[1, 0], [1, 0], [1, 1]], weight: 4 },
+            { matrix: [[0, 1], [0, 1], [1, 1]], weight: 4 },
+            { matrix: [[1, 1], [1, 0], [1, 0]], weight: 4 },
+            { matrix: [[1, 1], [0, 1], [0, 1]], weight: 4 },
+            { matrix: [[1, 1, 1], [1, 0, 0]], weight: 4 },
+            { matrix: [[1, 1, 1], [0, 0, 1]], weight: 4 },
+            { matrix: [[1, 0, 0], [1, 1, 1]], weight: 4 },
+            { matrix: [[0, 0, 1], [1, 1, 1]], weight: 4 },
+
+            // T-shapes
+            { matrix: [[1, 1, 1], [0, 1, 0]], weight: 4 },
+            { matrix: [[0, 1, 0], [1, 1, 1]], weight: 4 },
+            { matrix: [[1, 0], [1, 1], [1, 0]], weight: 4 },
+            { matrix: [[0, 1], [1, 1], [0, 1]], weight: 4 },
+
+            // Z & S shapes
+            { matrix: [[1, 1, 0], [0, 1, 1]], weight: 4 },
+            { matrix: [[0, 1, 1], [1, 1, 0]], weight: 4 },
+            { matrix: [[0, 1], [1, 1], [1, 0]], weight: 4 },
+            { matrix: [[1, 0], [1, 1], [0, 1]], weight: 4 },
+
+            // Big Classic Block Blast Shapes (1x5, 3x3, 3x3 Big Corner)
+            { matrix: [[1, 1, 1, 1, 1]], weight: 2 },
+            { matrix: [[1], [1], [1], [1], [1]], weight: 2 },
+            { matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], weight: 3 },
+            { matrix: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], weight: 3 },
+            { matrix: [[1, 1, 1], [0, 0, 1], [0, 0, 1]], weight: 3 },
+            { matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], weight: 3 },
+            { matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], weight: 3 }
+        ];
+
+        function pickRandomShape() {
+            const totalWeight = SHAPES_POOL.reduce((acc, item) => acc + item.weight, 0);
+            let rand = Math.random() * totalWeight;
+            for (const item of SHAPES_POOL) {
+                if (rand < item.weight) {
+                    const colorKey = COLOR_KEYS[Math.floor(Math.random() * COLOR_KEYS.length)];
+                    return {
+                        matrix: item.matrix,
+                        rows: item.matrix.length,
+                        cols: item.matrix[0].length,
+                        colorKey
+                    };
+                }
+                rand -= item.weight;
+            }
+            return { matrix: [[1, 1], [1, 1]], rows: 2, cols: 2, colorKey: 'cyan' };
+        }
+
+        /**************************************************************
+         * 3. PARTICLE SYSTEM FOR SHATTER / EXPLOSIONS
+         **************************************************************/
+        const fxCanvas = document.getElementById('fx-canvas');
+        const fxCtx = fxCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeFxCanvas() {
+            fxCanvas.width = window.innerWidth;
+            fxCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeFxCanvas);
+        resizeFxCanvas();
+
+        function spawnCellExplosion(x, y, hexColor) {
+            const count = 11;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 6.5;
+                particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1.5,
+                    size: 5 + Math.random() * 6,
+                    color: hexColor,
+                    alpha: 1,
+                    rotation: Math.random() * Math.PI,
+                    vRot: (Math.random() - 0.5) * 0.25
+                });
+            }
+        }
+
+        function updateParticles() {
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.28; // gravity
+                p.rotation += p.vRot;
+                p.alpha -= 0.024;
+                p.size *= 0.97;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                fxCtx.save();
+                fxCtx.globalAlpha = Math.max(0, p.alpha);
+                fxCtx.translate(p.x, p.y);
+                fxCtx.rotate(p.rotation);
+                fxCtx.fillStyle = p.color;
+                fxCtx.beginPath();
+                fxCtx.roundRect(-p.size / 2, -p.size / 2, p.size, p.size, 2);
+                fxCtx.fill();
+                fxCtx.restore();
+            }
+            requestAnimationFrame(updateParticles);
+        }
+        requestAnimationFrame(updateParticles);
+
+        /**************************************************************
+         * 4. GAME STATE, AUTO-SAVE & HISTORY PERSISTENCE
+         **************************************************************/
+        const GRID_SIZE = 8;
+        const STORAGE_KEY = 'block_blast_vn_high_score_v1';
+        const ACTIVE_STATE_KEY = 'block_blast_vn_active_state_v2';
+        const MATCH_HISTORY_KEY = 'block_blast_vn_match_history_v1';
+        const SNAPSHOTS_KEY = 'block_blast_vn_snapshots_v1';
+
+        let board = []; // 8x8 storing null or colorKey
+        let dockPieces = [null, null, null];
+        let currentScore = 0;
+        let displayedScore = 0;
+        let highScore = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+
+        // Combo tracking: stays active if player clears at least 1 line within 3 consecutive placements
+        let comboCount = 0;
+        let maxComboInSession = 0;
+        let movesSinceLastClear = 0;
+
+        // DOM References
+        const boardContainer = document.getElementById('board-container');
+        const dockSlots = Array.from(document.querySelectorAll('.dock-slot'));
+        const dragProxy = document.getElementById('drag-proxy');
+        const dragProxyInner = document.getElementById('drag-proxy-inner');
+        const currentScoreEl = document.getElementById('current-score-el');
+        const bestScoreEl = document.getElementById('best-score-el');
+        const comboIndicator = document.getElementById('combo-indicator');
+        const bannerLayer = document.getElementById('banner-layer');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const modalCard = document.getElementById('modal-card');
+        const finalScoreEl = document.getElementById('final-score-el');
+        const finalBestEl = document.getElementById('final-best-el');
+
+        let cellElements = []; // 8x8 DOM elements
+
+        function saveActiveGameState() {
+            try {
+                const payload = {
+                    board,
+                    dockPieces,
+                    currentScore,
+                    highScore,
+                    comboCount,
+                    maxComboInSession,
+                    movesSinceLastClear,
+                    updatedAt: Date.now()
+                };
+                localStorage.setItem(ACTIVE_STATE_KEY, JSON.stringify(payload));
+                localStorage.setItem(STORAGE_KEY, highScore.toString());
+            } catch (e) {
+                console.warn('Auto-save error:', e);
+            }
+        }
+
+        function clearActiveGameState() {
+            try {
+                localStorage.removeItem(ACTIVE_STATE_KEY);
+            } catch (e) {}
+        }
+
+        function loadActiveGameState() {
+            try {
+                const raw = localStorage.getItem(ACTIVE_STATE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (!data || !Array.isArray(data.board) || data.board.length !== GRID_SIZE) return false;
+
+                board = data.board;
+                dockPieces = Array.isArray(data.dockPieces) && data.dockPieces.length === 3 ? data.dockPieces : [null, null, null];
+                currentScore = Number(data.currentScore) || 0;
+                comboCount = Number(data.comboCount) || 0;
+                maxComboInSession = Number(data.maxComboInSession) || 0;
+                movesSinceLastClear = Number(data.movesSinceLastClear) || 0;
+                if (data.highScore && data.highScore > highScore) {
+                    highScore = data.highScore;
+                }
+
+                // Verify if all dock pieces are empty or game is already over
+                if (dockPieces.every(p => p === null)) {
+                    for (let i = 0; i < 3; i++) dockPieces[i] = pickRandomShape();
+                }
+
+                updateComboBadge();
+                animateScoreTo(currentScore, true);
+                bestScoreEl.textContent = highScore.toLocaleString('vi-VN');
+                renderBoard();
+                for (let i = 0; i < 3; i++) renderDockSlot(i, true);
+
+                if (checkIsGameOver()) {
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function recordMatchToHistory(reason = 'Hết nước đi') {
+            if (currentScore <= 0) return;
+            try {
+                const list = JSON.parse(localStorage.getItem(MATCH_HISTORY_KEY) || '[]');
+                list.unshift({
+                    id: Date.now(),
+                    score: currentScore,
+                    maxCombo: maxComboInSession,
+                    reason,
+                    timestamp: new Date().toLocaleString('vi-VN')
+                });
+                localStorage.setItem(MATCH_HISTORY_KEY, JSON.stringify(list.slice(0, 30)));
+            } catch (e) {}
+        }
+
+        function saveManualSnapshot() {
+            try {
+                const list = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]');
+                const filledCells = board.flat().filter(Boolean).length;
+                list.unshift({
+                    id: Date.now(),
+                    score: currentScore,
+                    comboCount,
+                    maxComboInSession,
+                    movesSinceLastClear,
+                    filledCells,
+                    board: board.map(r => [...r]),
+                    dockPieces: JSON.parse(JSON.stringify(dockPieces)),
+                    timestamp: new Date().toLocaleString('vi-VN')
+                });
+                localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(list.slice(0, 15)));
+                renderHistoryModalLists();
+            } catch (e) {}
+        }
+
+        function restoreSnapshotById(snapshotId) {
+            try {
+                const list = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]');
+                const found = list.find(item => item.id === snapshotId);
+                if (!found) return;
+
+                board = found.board.map(r => [...r]);
+                dockPieces = JSON.parse(JSON.stringify(found.dockPieces));
+                currentScore = found.score || 0;
+                comboCount = found.comboCount || 0;
+                maxComboInSession = found.maxComboInSession || 0;
+                movesSinceLastClear = found.movesSinceLastClear || 0;
+
+                updateComboBadge();
+                animateScoreTo(currentScore, true);
+                renderBoard();
+                for (let i = 0; i < 3; i++) renderDockSlot(i, true);
+                saveActiveGameState();
+                closeHistoryModal();
+                hideGameOverModal();
+            } catch (e) {}
+        }
+
+        function deleteSnapshotById(snapshotId) {
+            try {
+                const list = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]');
+                const filtered = list.filter(item => item.id !== snapshotId);
+                localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(filtered));
+                renderHistoryModalLists();
+            } catch (e) {}
+        }
+
+        function initBoardDOM() {
+            boardContainer.innerHTML = '';
+            cellElements = [];
+            for (let r = 0; r < GRID_SIZE; r++) {
+                const rowEls = [];
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'board-cell';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    boardContainer.appendChild(cell);
+                    rowEls.push(cell);
+                }
+                cellElements.push(rowEls);
+            }
+        }
+
+        function startNewGame() {
+            board = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+            currentScore = 0;
+            comboCount = 0;
+            maxComboInSession = 0;
+            movesSinceLastClear = 0;
+            updateComboBadge();
+            animateScoreTo(0, true);
+            bestScoreEl.textContent = highScore.toLocaleString('vi-VN');
+            hideGameOverModal();
+            renderBoard();
+            spawnDockSet();
+            saveActiveGameState();
+        }
+
+        function renderBoard() {
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cellEl = cellElements[r][c];
+                    const colorKey = board[r][c];
+                    cellEl.innerHTML = '';
+                    cellEl.classList.remove('will-clear-highlight');
+                    if (colorKey) {
+                        const tile = document.createElement('div');
+                        tile.className = 'block-tile';
+                        tile.style.background = BLOCK_COLORS[colorKey].bg;
+                        cellEl.appendChild(tile);
+                    }
+                }
+            }
+        }
+
+        function spawnDockSet() {
+            for (let i = 0; i < 3; i++) {
+                dockPieces[i] = pickRandomShape();
+                renderDockSlot(i, true);
+            }
+            saveActiveGameState();
+            // Check if newly spawned pieces have any valid moves
+            setTimeout(() => {
+                if (checkIsGameOver()) {
+                    triggerGameOver();
+                }
+            }, 250);
+        }
+
+        function renderDockSlot(slotIdx, withBounce = false) {
+            const slotEl = dockSlots[slotIdx];
+            slotEl.innerHTML = '';
+            const piece = dockPieces[slotIdx];
+            if (!piece) return;
+
+            // Calculate responsive mini tile size so 5x1 or 3x3 fits comfortably inside dock
+            const maxDim = Math.max(piece.rows, piece.cols);
+            const tilePx = maxDim >= 5 ? 17 : maxDim === 4 ? 20 : maxDim === 3 ? 23 : 26;
+
+            const preview = document.createElement('div');
+            preview.className = `piece-preview ${withBounce ? 'spawn-bounce' : ''}`;
+            preview.style.gridTemplateColumns = `repeat(${piece.cols}, ${tilePx}px)`;
+            preview.style.gridTemplateRows = `repeat(${piece.rows}, ${tilePx}px)`;
+
+            for (let r = 0; r < piece.rows; r++) {
+                for (let c = 0; c < piece.cols; c++) {
+                    const cell = document.createElement('div');
+                    if (piece.matrix[r][c]) {
+                        cell.className = 'block-tile';
+                        cell.style.background = BLOCK_COLORS[piece.colorKey].bg;
+                        cell.style.borderRadius = '5px';
+                    }
+                    preview.appendChild(cell);
+                }
+            }
+            slotEl.appendChild(preview);
+        }
+
+        /**************************************************************
+         * 5. SCORE ROLLING ANIMATION & FLOATING COMBO BANNERS
+         **************************************************************/
+        let scoreAnimFrame = null;
+        function animateScoreTo(target, instant = false) {
+            if (instant) {
+                displayedScore = target;
+                currentScoreEl.textContent = displayedScore.toLocaleString('vi-VN');
+                return;
+            }
+            if (scoreAnimFrame) cancelAnimationFrame(scoreAnimFrame);
+
+            function tick() {
+                const diff = target - displayedScore;
+                if (Math.abs(diff) <= 1) {
+                    displayedScore = target;
+                    currentScoreEl.textContent = displayedScore.toLocaleString('vi-VN');
+                    return;
+                }
+                displayedScore += Math.ceil(diff * 0.22);
+                currentScoreEl.textContent = displayedScore.toLocaleString('vi-VN');
+                scoreAnimFrame = requestAnimationFrame(tick);
+            }
+            tick();
+        }
+
+        function addScore(points) {
+            currentScore += points;
+            if (currentScore > highScore) {
+                highScore = currentScore;
+                localStorage.setItem(STORAGE_KEY, highScore.toString());
+                bestScoreEl.textContent = highScore.toLocaleString('vi-VN');
+            }
+            animateScoreTo(currentScore);
+        }
+
+        function updateComboBadge() {
+            if (comboCount >= 2) {
+                comboIndicator.textContent = `COMBO x${comboCount}`;
+                comboIndicator.classList.remove('hidden');
+                comboIndicator.classList.add('flex');
+            } else {
+                comboIndicator.classList.add('hidden');
+                comboIndicator.classList.remove('flex');
+            }
+        }
+
+        function showFloatingBanner(linesCleared, combo, bonusPoints) {
+            const praiseLabels = {
+                1: { text: 'GOOD!', color: 'from-cyan-300 to-blue-500' },
+                2: { text: 'GREAT!', color: 'from-green-300 to-emerald-500' },
+                3: { text: 'AMAZING!', color: 'from-yellow-300 to-orange-500' },
+                4: { text: 'EXCELLENT!', color: 'from-pink-400 to-rose-600' }
+            };
+            const praise = praiseLabels[Math.min(linesCleared, 4)] || { text: 'UNBELIEVABLE!', color: 'from-purple-300 to-fuchsia-600' };
+
+            const banner = document.createElement('div');
+            banner.className = 'floating-banner';
+
+            let comboHtml = '';
+            if (combo >= 2) {
+                comboHtml = `<div class="text-2xl sm:text-3xl font-extrabold text-amber-300 stroke-text tracking-wider mb-0.5">COMBO x${combo}!</div>`;
+            }
+
+            banner.innerHTML = `
+                ${comboHtml}
+                <div class="text-4xl sm:text-5xl font-extrabold bg-gradient-to-b ${praise.color} bg-clip-text text-transparent stroke-text tracking-wide">
+                    ${praise.text}
+                </div>
+                <div class="text-xl font-extrabold text-white stroke-text mt-1">+${bonusPoints}</div>
+            `;
+
+            bannerLayer.appendChild(banner);
+            setTimeout(() => banner.remove(), 1150);
+        }
+
+        /**************************************************************
+         * 6. ULTRA-SMOOTH 60/120FPS DRAG & DROP SYSTEM
+         **************************************************************/
+        let boardMetrics = {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            firstCellLeft: 0,
+            firstCellTop: 0,
+            cellSize: 0,
+            gap: 5,
+            step: 0
+        };
+
+        function updateBoardMetrics() {
+            if (!cellElements.length || !cellElements[0][0]) return;
+            const boardRect = boardContainer.getBoundingClientRect();
+            const firstRect = cellElements[0][0].getBoundingClientRect();
+            const secondRect = cellElements[0][1] ? cellElements[0][1].getBoundingClientRect() : null;
+
+            const cellSize = firstRect.width;
+            const gap = secondRect ? (secondRect.left - firstRect.right) : 5;
+
+            boardMetrics.left = boardRect.left;
+            boardMetrics.top = boardRect.top;
+            boardMetrics.right = boardRect.right;
+            boardMetrics.bottom = boardRect.bottom;
+            boardMetrics.firstCellLeft = firstRect.left;
+            boardMetrics.firstCellTop = firstRect.top;
+            boardMetrics.cellSize = cellSize;
+            boardMetrics.gap = gap;
+            boardMetrics.step = cellSize + gap;
+        }
+
+        window.addEventListener('resize', updateBoardMetrics);
+
+        let dragState = {
+            active: false,
+            slotIdx: -1,
+            piece: null,
+            pointerX: 0,
+            pointerY: 0,
+            isTouch: false,
+            proxyWidth: 0,
+            proxyHeight: 0,
+            validOrigin: null, // { r, c }
+            lastHoverR: -999,
+            lastHoverC: -999,
+            returnTimer: null
+        };
+
+        // Vertical lift offset so finger doesn't cover the dragged piece on touch screens
+        function getVerticalLiftOffset() {
+            return dragState.isTouch ? 86 : 24;
+        }
+
+        function buildDragProxyDOM(piece) {
+            updateBoardMetrics();
+            const { cellSize, gap } = boardMetrics;
+
+            const totalW = piece.cols * cellSize + (piece.cols - 1) * gap;
+            const totalH = piece.rows * cellSize + (piece.rows - 1) * gap;
+            dragState.proxyWidth = totalW;
+            dragState.proxyHeight = totalH;
+
+            dragProxy.style.width = `${totalW}px`;
+            dragProxy.style.height = `${totalH}px`;
+
+            dragProxyInner.innerHTML = '';
+            dragProxyInner.style.gridTemplateColumns = `repeat(${piece.cols}, ${cellSize}px)`;
+            dragProxyInner.style.gridTemplateRows = `repeat(${piece.rows}, ${cellSize}px)`;
+            dragProxyInner.style.gap = `${gap}px`;
+
+            const frag = document.createDocumentFragment();
+            for (let r = 0; r < piece.rows; r++) {
+                for (let c = 0; c < piece.cols; c++) {
+                    const div = document.createElement('div');
+                    if (piece.matrix[r][c]) {
+                        div.className = 'block-tile';
+                        div.style.background = BLOCK_COLORS[piece.colorKey].bg;
+                    }
+                    frag.appendChild(div);
+                }
+            }
+            dragProxyInner.appendChild(frag);
+        }
+
+        function startDrag(slotIdx, clientX, clientY, isTouch) {
+            const piece = dockPieces[slotIdx];
+            if (!piece) return;
+
+            if (dragState.returnTimer) {
+                clearTimeout(dragState.returnTimer);
+                dragState.returnTimer = null;
+            }
+
+            sfx.pickup();
+
+            dragState.active = true;
+            dragState.slotIdx = slotIdx;
+            dragState.piece = piece;
+            dragState.pointerX = clientX;
+            dragState.pointerY = clientY;
+            dragState.isTouch = isTouch;
+            dragState.validOrigin = null;
+            dragState.lastHoverR = -999;
+            dragState.lastHoverC = -999;
+
+            // Hide original piece in dock
+            const slotEl = dockSlots[slotIdx];
+            const previewEl = slotEl.querySelector('.piece-preview');
+            if (previewEl) previewEl.style.opacity = '0';
+
+            buildDragProxyDOM(piece);
+
+            // Ensure zero transition on outer proxy so X/Y tracking is instantaneous
+            dragProxy.style.transition = 'none';
+            dragProxy.style.display = 'block';
+
+            // Pop-up scale animation on inner wrapper only
+            dragProxyInner.style.transition = 'none';
+            dragProxyInner.style.transform = 'scale(0.6)';
+            updateDragPosition(clientX, clientY);
+
+            requestAnimationFrame(() => {
+                if (!dragState.active) return;
+                dragProxyInner.style.transition = 'transform 0.14s cubic-bezier(0.22, 1, 0.36, 1)';
+                dragProxyInner.style.transform = 'scale(1)';
+            });
+        }
+
+        function updateDragPosition(clientX, clientY) {
+            if (!dragState.active) return;
+            dragState.pointerX = clientX;
+            dragState.pointerY = clientY;
+
+            const liftY = getVerticalLiftOffset();
+            const left = clientX - dragState.proxyWidth * 0.5;
+            const top = clientY - dragState.proxyHeight * 0.5 - liftY;
+
+            // Instant 1:1 hardware-accelerated translation
+            dragProxy.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+
+            // Top-left cell (0,0) center coordinate of dragged piece using cached metrics
+            const cell00CenterX = left + boardMetrics.cellSize * 0.5;
+            const cell00CenterY = top + boardMetrics.cellSize * 0.5;
+
+            const origin = getClosestBoardOrigin(cell00CenterX, cell00CenterY);
+            const targetR = origin ? origin.r : -999;
+            const targetC = origin ? origin.c : -999;
+
+            // Only touch the board DOM when target grid coordinates actually change!
+            if (targetR === dragState.lastHoverR && targetC === dragState.lastHoverC) {
+                return;
+            }
+
+            dragState.lastHoverR = targetR;
+            dragState.lastHoverC = targetC;
+
+            if (origin && canPlacePiece(dragState.piece, origin.r, origin.c)) {
+                dragState.validOrigin = origin;
+                renderHoverPreview(dragState.piece, origin.r, origin.c);
+            } else {
+                dragState.validOrigin = null;
+                clearHoverPreview();
+            }
+        }
+
+        function getClosestBoardOrigin(x, y) {
+            const { left, right, top, bottom, firstCellLeft, firstCellTop, cellSize, step } = boardMetrics;
+            if (!step) return null;
+
+            const margin = cellSize * 0.75;
+            if (
+                x < left - margin ||
+                x > right + margin ||
+                y < top - margin ||
+                y > bottom + margin
+            ) {
+                return null;
+            }
+
+            const colFloat = (x - firstCellLeft) / step;
+            const rowFloat = (y - firstCellTop) / step;
+
+            const c = Math.round(colFloat - 0.5);
+            const r = Math.round(rowFloat - 0.5);
+
+            return { r, c };
+        }
+
+        function canPlacePiece(piece, startR, startC) {
+            for (let r = 0; r < piece.rows; r++) {
+                for (let c = 0; c < piece.cols; c++) {
+                    if (piece.matrix[r][c]) {
+                        const targetR = startR + r;
+                        const targetC = startC + c;
+                        if (
+                            targetR < 0 ||
+                            targetR >= GRID_SIZE ||
+                            targetC < 0 ||
+                            targetC >= GRID_SIZE ||
+                            board[targetR][targetC] !== null
+                        ) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        let activeGhostCells = [];
+        let activeHighlightCells = [];
+
+        function clearHoverPreview() {
+            for (let i = 0; i < activeGhostCells.length; i++) {
+                const ghost = activeGhostCells[i];
+                if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            }
+            activeGhostCells.length = 0;
+
+            for (let i = 0; i < activeHighlightCells.length; i++) {
+                activeHighlightCells[i].classList.remove('will-clear-highlight');
+            }
+            activeHighlightCells.length = 0;
+        }
+
+        function renderHoverPreview(piece, startR, startC) {
+            clearHoverPreview();
+
+            const bgStyle = BLOCK_COLORS[piece.colorKey].bg;
+
+            // Draw ghost blocks on target empty cells
+            for (let r = 0; r < piece.rows; r++) {
+                for (let c = 0; c < piece.cols; c++) {
+                    if (piece.matrix[r][c]) {
+                        const tr = startR + r;
+                        const tc = startC + c;
+                        const ghost = document.createElement('div');
+                        ghost.className = 'ghost-tile';
+                        ghost.style.background = bgStyle;
+                        cellElements[tr][tc].appendChild(ghost);
+                        activeGhostCells.push(ghost);
+                    }
+                }
+            }
+
+            // Simulate placement to see which full rows/cols will be cleared
+            const { fullRows, fullCols } = getSimulatedClears(piece, startR, startC);
+
+            fullRows.forEach(r => {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cellEl = cellElements[r][c];
+                    cellEl.classList.add('will-clear-highlight');
+                    activeHighlightCells.push(cellEl);
+                }
+            });
+
+            fullCols.forEach(c => {
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    const cellEl = cellElements[r][c];
+                    cellEl.classList.add('will-clear-highlight');
+                    activeHighlightCells.push(cellEl);
+                }
+            });
+        }
+
+        function getSimulatedClears(piece, startR, startC) {
+            const temp = board.map(row => [...row]);
+            for (let r = 0; r < piece.rows; r++) {
+                for (let c = 0; c < piece.cols; c++) {
+                    if (piece.matrix[r][c]) {
+                        temp[startR + r][startC + c] = piece.colorKey;
+                    }
+                }
+            }
+
+            const fullRows = [];
+            const fullCols = [];
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (temp[r].every(val => val !== null)) fullRows.push(r);
+            }
+            for (let c = 0; c < GRID_SIZE; c++) {
+                let colFull = true;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    if (temp[r][c] === null) {
+                        colFull = false;
+                        break;
+                    }
+                }
+                if (colFull) fullCols.push(c);
+            }
+
+            return { fullRows, fullCols };
+        }
+
+        function endDrag() {
+            if (!dragState.active) return;
+
+            const { slotIdx, piece, validOrigin } = dragState;
+            dragState.active = false;
+            dragState.lastHoverR = -999;
+            dragState.lastHoverC = -999;
+            clearHoverPreview();
+
+            if (validOrigin) {
+                dragProxy.style.display = 'none';
+                dragProxy.style.transform = 'translate3d(-9999px, -9999px, 0)';
+                commitPiecePlacement(slotIdx, piece, validOrigin.r, validOrigin.c);
+            } else {
+                // Smoothly animate proxy back to its dock slot
+                sfx.returnDock();
+                const slotEl = dockSlots[slotIdx];
+                const slotRect = slotEl.getBoundingClientRect();
+                const targetX = slotRect.left + slotRect.width * 0.5 - dragState.proxyWidth * 0.5;
+                const targetY = slotRect.top + slotRect.height * 0.5 - dragState.proxyHeight * 0.5;
+
+                dragProxy.style.transition = 'transform 0.16s cubic-bezier(0.25, 1, 0.5, 1)';
+                dragProxy.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
+                dragProxyInner.style.transition = 'transform 0.16s cubic-bezier(0.25, 1, 0.5, 1)';
+                dragProxyInner.style.transform = 'scale(0.55)';
+
+                dragState.returnTimer = setTimeout(() => {
+                    dragProxy.style.transition = 'none';
+                    dragProxy.style.display = 'none';
+                    dragProxy.style.transform = 'translate3d(-9999px, -9999px, 0)';
+                    const previewEl = slotEl.querySelector('.piece-preview');
+                    if (previewEl) previewEl.style.opacity = '1';
+                    dragState.returnTimer = null;
+                }, 165);
+            }
+        }
+
+        /**************************************************************
+         * 7. PLACEMENT, LINE CLEARING & GAME OVER DETECTION
+         **************************************************************/
+        function commitPiecePlacement(slotIdx, piece, startR, startC) {
+            sfx.place();
+
+            let cellsPlacedCount = 0;
+            for (let r = 0; r < piece.rows; r++) {
+                for (let c = 0; c < piece.cols; c++) {
+                    if (piece.matrix[r][c]) {
+                        const tr = startR + r;
+                        const tc = startC + c;
+                        board[tr][tc] = piece.colorKey;
+                        cellsPlacedCount++;
+
+                        const cellEl = cellElements[tr][tc];
+                        cellEl.innerHTML = '';
+                        const tile = document.createElement('div');
+                        tile.className = 'block-tile placed-pop';
+                        tile.style.background = BLOCK_COLORS[piece.colorKey].bg;
+                        cellEl.appendChild(tile);
+                    }
+                }
+            }
+
+            // Remove placed piece from dock
+            dockPieces[slotIdx] = null;
+            dockSlots[slotIdx].innerHTML = '';
+
+            // Award base placement points
+            addScore(cellsPlacedCount);
+
+            // Check for completed horizontal rows and vertical columns
+            const fullRows = [];
+            const fullCols = [];
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (board[r].every(cell => cell !== null)) fullRows.push(r);
+            }
+            for (let c = 0; c < GRID_SIZE; c++) {
+                let isColFull = true;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    if (board[r][c] === null) {
+                        isColFull = false;
+                        break;
+                    }
+                }
+                if (isColFull) fullCols.push(c);
+            }
+
+            const totalLinesCleared = fullRows.length + fullCols.length;
+
+            if (totalLinesCleared > 0) {
+                comboCount++;
+                if (comboCount > maxComboInSession) maxComboInSession = comboCount;
+                movesSinceLastClear = 0;
+                updateComboBadge();
+
+                // Classic Block Blast generous line & multi-line combo scoring
+                const baseLineScore = totalLinesCleared * 10 * totalLinesCleared;
+                const comboBonus = baseLineScore * comboCount;
+                addScore(comboBonus);
+
+                sfx.clearLines(totalLinesCleared, comboCount);
+                showFloatingBanner(totalLinesCleared, comboCount, comboBonus);
+
+                // Trigger subtle screen shake
+                boardContainer.classList.remove('screen-shake');
+                void boardContainer.offsetWidth;
+                boardContainer.classList.add('screen-shake');
+
+                // Collect unique coordinates to clear
+                const toClearCoords = new Set();
+                fullRows.forEach(r => {
+                    for (let c = 0; c < GRID_SIZE; c++) toClearCoords.add(`${r},${c}`);
+                });
+                fullCols.forEach(c => {
+                    for (let r = 0; r < GRID_SIZE; r++) toClearCoords.add(`${r},${c}`);
+                });
+
+                toClearCoords.forEach(coord => {
+                    const [r, c] = coord.split(',').map(Number);
+                    const colorKey = board[r][c] || piece.colorKey;
+                    const hex = BLOCK_COLORS[colorKey].hex;
+                    board[r][c] = null;
+
+                    const cellEl = cellElements[r][c];
+                    const rect = cellEl.getBoundingClientRect();
+                    spawnCellExplosion(rect.left + rect.width / 2, rect.top + rect.height / 2, hex);
+
+                    const tile = cellEl.querySelector('.block-tile');
+                    if (tile) tile.classList.add('clearing-anim');
+                });
+
+                setTimeout(() => {
+                    toClearCoords.forEach(coord => {
+                        const [r, c] = coord.split(',').map(Number);
+                        cellElements[r][c].innerHTML = '';
+                    });
+                    afterMoveComplete();
+                }, 310);
+            } else {
+                movesSinceLastClear++;
+                // Reset combo streak if 3 placements pass without clearing a line
+                if (movesSinceLastClear >= 3) {
+                    comboCount = 0;
+                    updateComboBadge();
+                }
+                afterMoveComplete();
+            }
+        }
+
+        function afterMoveComplete() {
+            const allUsed = dockPieces.every(p => p === null);
+            if (allUsed) {
+                spawnDockSet();
+            } else {
+                saveActiveGameState();
+                if (checkIsGameOver()) {
+                    triggerGameOver();
+                }
+            }
+        }
+
+        function checkIsGameOver() {
+            const remainingPieces = dockPieces.filter(p => p !== null);
+            if (remainingPieces.length === 0) return false;
+
+            for (const piece of remainingPieces) {
+                for (let r = 0; r <= GRID_SIZE - piece.rows; r++) {
+                    for (let c = 0; c <= GRID_SIZE - piece.cols; c++) {
+                        if (canPlacePiece(piece, r, c)) {
+                            return false; // Found at least one valid spot
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function triggerGameOver() {
+            sfx.gameOver();
+            recordMatchToHistory('Hết nước đi');
+            clearActiveGameState();
+            finalScoreEl.textContent = currentScore.toLocaleString('vi-VN');
+            finalBestEl.textContent = highScore.toLocaleString('vi-VN');
+
+            gameOverModal.classList.remove('hidden');
+            gameOverModal.classList.add('flex');
+            requestAnimationFrame(() => {
+                gameOverModal.classList.remove('opacity-0');
+                modalCard.classList.remove('scale-95');
+                modalCard.classList.add('scale-100');
+            });
+        }
+
+        function hideGameOverModal() {
+            gameOverModal.classList.add('opacity-0');
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-95');
+            setTimeout(() => {
+                gameOverModal.classList.add('hidden');
+                gameOverModal.classList.remove('flex');
+            }, 280);
+        }
+
+        /**************************************************************
+         * 8. EVENT LISTENERS (MOUSE, TOUCH, UI BUTTONS)
+         **************************************************************/
+        dockSlots.forEach((slotEl, idx) => {
+            // Mouse down
+            slotEl.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                startDrag(idx, e.clientX, e.clientY, false);
+            });
+
+            // Touch start
+            slotEl.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 0) {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    startDrag(idx, touch.clientX, touch.clientY, true);
+                }
+            }, { passive: false });
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!dragState.active) return;
+            e.preventDefault();
+            updateDragPosition(e.clientX, e.clientY);
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!dragState.active || e.touches.length === 0) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            updateDragPosition(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => {
+            if (dragState.active) endDrag();
+        });
+
+        window.addEventListener('touchend', () => {
+            if (dragState.active) endDrag();
+        });
+
+        window.addEventListener('touchcancel', () => {
+            if (dragState.active) endDrag();
+        });
+
+        // Sound Mute Toggle
+        const soundBtn = document.getElementById('sound-btn');
+        const iconSoundOn = document.getElementById('icon-sound-on');
+        const iconSoundOff = document.getElementById('icon-sound-off');
+
+        soundBtn.addEventListener('click', () => {
+            const isMuted = sfx.toggleMute();
+            iconSoundOn.classList.toggle('hidden', isMuted);
+            iconSoundOff.classList.toggle('hidden', !isMuted);
+            if (!isMuted) sfx.pickup();
+        });
+
+        // Restart & Play Again Buttons
+        const confirmResetModal = document.getElementById('confirm-reset-modal');
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            sfx.pickup();
+            const hasBlocks = board.some(row => row.some(cell => cell !== null));
+            if (currentScore > 0 || hasBlocks) {
+                confirmResetModal.classList.remove('hidden');
+                confirmResetModal.classList.add('flex');
+            } else {
+                startNewGame();
+            }
+        });
+
+        document.getElementById('cancel-reset-btn').addEventListener('click', () => {
+            sfx.pickup();
+            confirmResetModal.classList.add('hidden');
+            confirmResetModal.classList.remove('flex');
+        });
+
+        document.getElementById('confirm-reset-btn').addEventListener('click', () => {
+            sfx.pickup();
+            recordMatchToHistory('Chơi lại ván mới');
+            confirmResetModal.classList.add('hidden');
+            confirmResetModal.classList.remove('flex');
+            startNewGame();
+        });
+
+        document.getElementById('play-again-btn').addEventListener('click', () => {
+            sfx.pickup();
+            startNewGame();
+        });
+
+        /**************************************************************
+         * 9. HISTORY & SNAPSHOTS UI LOGIC
+         **************************************************************/
+        const historyModal = document.getElementById('history-modal');
+        const snapshotsListContainer = document.getElementById('snapshots-list-container');
+        const matchesListContainer = document.getElementById('matches-list-container');
+        const tabSnapshotsBtn = document.getElementById('tab-snapshots-btn');
+        const tabMatchesBtn = document.getElementById('tab-matches-btn');
+
+        function renderHistoryModalLists() {
+            // Render saved snapshots
+            const snapshots = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]');
+            if (snapshots.length === 0) {
+                snapshotsListContainer.innerHTML = `
+                    <div class="text-center py-8 text-indigo-300/70 text-xs">
+                        Chưa có mốc bàn cờ nào được lưu thủ công.<br>
+                        Nhấn <b>"+ Lưu Mốc Này"</b> ở trên để tạo điểm khôi phục!
+                    </div>`;
+            } else {
+                snapshotsListContainer.innerHTML = snapshots.map(s => `
+                    <div class="bg-[#161c42] border border-indigo-800/80 rounded-xl p-2.5 flex items-center justify-between gap-2">
+                        <div>
+                            <div class="text-sm font-extrabold text-amber-300">Điểm: ${Number(s.score).toLocaleString('vi-VN')} <span class="text-[11px] text-cyan-300 font-semibold">(${s.filledCells}/64 ô)</span></div>
+                            <div class="text-[10px] text-indigo-300">${s.timestamp} • Combo x${s.comboCount || 0}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="restoreSnapshotById(${s.id})" class="cta-btn px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-white">Chơi tiếp</button>
+                            <button onclick="deleteSnapshotById(${s.id})" class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/40 font-bold text-xs">✕</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Render completed match history
+            const matches = JSON.parse(localStorage.getItem(MATCH_HISTORY_KEY) || '[]');
+            if (matches.length === 0) {
+                matchesListContainer.innerHTML = `
+                    <div class="text-center py-8 text-indigo-300/70 text-xs">
+                        Chưa có lịch sử ván đấu nào kết thúc.
+                    </div>`;
+            } else {
+                matchesListContainer.innerHTML = matches.map((m, idx) => `
+                    <div class="bg-[#161c42] border border-indigo-800/80 rounded-xl p-2.5 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-indigo-900 text-indigo-200 text-xs font-extrabold flex items-center justify-center">#${idx + 1}</span>
+                            <div>
+                                <div class="text-sm font-extrabold text-white">${Number(m.score).toLocaleString('vi-VN')} điểm</div>
+                                <div class="text-[10px] text-indigo-300">${m.timestamp} • ${m.reason || 'Hoàn thành'}</div>
+                            </div>
+                        </div>
+                        <span class="text-xs font-extrabold text-amber-400 bg-amber-400/10 px-2 py-1 rounded-lg">Max Combo x${m.maxCombo || 0}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function closeHistoryModal() {
+            historyModal.classList.add('hidden');
+            historyModal.classList.remove('flex');
+        }
+
+        document.getElementById('history-btn').addEventListener('click', () => {
+            sfx.pickup();
+            renderHistoryModalLists();
+            historyModal.classList.remove('hidden');
+            historyModal.classList.add('flex');
+        });
+
+        document.getElementById('close-history-btn').addEventListener('click', closeHistoryModal);
+
+        document.getElementById('save-snapshot-btn').addEventListener('click', () => {
+            sfx.place();
+            saveManualSnapshot();
+        });
+
+        tabSnapshotsBtn.addEventListener('click', () => {
+            tabSnapshotsBtn.className = 'flex-1 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 text-white';
+            tabMatchesBtn.className = 'flex-1 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-950/70 text-indigo-300';
+            snapshotsListContainer.classList.remove('hidden');
+            matchesListContainer.classList.add('hidden');
+        });
+
+        tabMatchesBtn.addEventListener('click', () => {
+            tabMatchesBtn.className = 'flex-1 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 text-white';
+            tabSnapshotsBtn.className = 'flex-1 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-950/70 text-indigo-300';
+            matchesListContainer.classList.remove('hidden');
+            snapshotsListContainer.classList.add('hidden');
+        });
+
+        document.getElementById('clear-history-btn').addEventListener('click', () => {
+            localStorage.removeItem(MATCH_HISTORY_KEY);
+            localStorage.removeItem(SNAPSHOTS_KEY);
+            renderHistoryModalLists();
+        });
+
+        /**************************************************************
+         * 10. MOBILE REPO & OFFLINE EXPORT MODAL LOGIC
+         **************************************************************/
+        const repoModal = document.getElementById('repo-modal');
+        document.getElementById('repo-btn').addEventListener('click', () => {
+            sfx.pickup();
+            repoModal.classList.remove('hidden');
+            repoModal.classList.add('flex');
+        });
+
+        document.getElementById('close-repo-btn').addEventListener('click', () => {
+            repoModal.classList.add('hidden');
+            repoModal.classList.remove('flex');
+        });
+
+        document.getElementById('copy-repo-btn').addEventListener('click', (e) => {
+            const codeText = document.getElementById('repo-code-block').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = codeText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+            e.target.textContent = 'Đã sao chép!';
+            setTimeout(() => { e.target.textContent = 'Sao chép Code'; }, 1500);
+        });
+
+        document.getElementById('download-html-btn').addEventListener('click', () => {
+            const htmlSource = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+            const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'index.html';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        });
+
+        // Initialize Game on Window Load (Restore active game if exists)
+        window.onload = () => {
+            initBoardDOM();
+            updateBoardMetrics();
+            const restored = loadActiveGameState();
+            if (!restored) {
+                startNewGame();
+            }
+        };
+    </script>
+</body>
+</html>
