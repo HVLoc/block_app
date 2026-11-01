@@ -1,4 +1,4 @@
-package com.example.block
+package vn.lochv.locblocks
 
 import io.flutter.embedding.android.FlutterActivity
 

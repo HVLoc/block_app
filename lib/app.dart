@@ -15,7 +15,7 @@ class BlockBlastLiteApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GetMaterialApp(
     debugShowCheckedModeBanner: false,
-    title: 'Block Blast Lite',
+    title: 'Blocks',
     initialRoute: initialRoute,
     getPages: AppPages.pages(preferences),
   );
