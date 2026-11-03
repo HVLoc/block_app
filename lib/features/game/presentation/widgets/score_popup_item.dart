@@ -56,9 +56,13 @@ class _ScorePopupItemState extends State<ScorePopupItem>
       animation: _ctrl,
       builder: (_, __) => Positioned(
         left: widget.popup.position.dx - 30,
-        top: widget.popup.position.dy + _offsetAnim.value,
+        top:
+            widget.popup.position.dy +
+            (MediaQuery.disableAnimationsOf(context) ? 0 : _offsetAnim.value),
         child: Opacity(
-          opacity: _opacityAnim.value.clamp(0.0, 1.0),
+          opacity: MediaQuery.disableAnimationsOf(context)
+              ? 1
+              : _opacityAnim.value.clamp(0.0, 1.0),
           child: Text(
             '+${widget.popup.points}',
             style: const TextStyle(

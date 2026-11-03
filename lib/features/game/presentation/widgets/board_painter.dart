@@ -1,4 +1,6 @@
 import 'package:block/core/theme/app_colors.dart';
+import 'package:block/core/theme/block_decoration.dart';
+import 'package:block/core/theme/block_theme.dart';
 import 'package:block/features/game/presentation/models/drag_info.dart';
 import 'package:flutter/material.dart';
 
@@ -7,7 +9,9 @@ class BoardPainter extends CustomPainter {
     required this.board,
     this.drag,
     this.flashCells = const {},
+    this.theme = BlockTheme.classic,
   });
+  final BlockTheme theme;
   final List<List<int?>> board;
   final DragInfo? drag;
   final Set<String> flashCells;
@@ -42,6 +46,9 @@ class BoardPainter extends CustomPainter {
           RRect.fromRectAndRadius(rect, const Radius.circular(5)),
           paint,
         );
+        if (colorIdx != null && !isFlashing) {
+          BlockDecoration.paint(canvas, rect, colorIdx, theme);
+        }
       }
     }
 
@@ -66,6 +73,13 @@ class BoardPainter extends CustomPainter {
               RRect.fromRectAndRadius(rect, const Radius.circular(5)),
               paint,
             );
+            BlockDecoration.paint(
+              canvas,
+              rect,
+              d.piece.colorIndex,
+              theme,
+              opacity: 0.45,
+            );
           }
         }
       }
@@ -76,5 +90,6 @@ class BoardPainter extends CustomPainter {
   bool shouldRepaint(covariant BoardPainter oldDelegate) =>
       oldDelegate.board != board ||
       oldDelegate.drag != drag ||
+      oldDelegate.theme != theme ||
       oldDelegate.flashCells != flashCells;
 }

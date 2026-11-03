@@ -4,6 +4,8 @@ class AppColors {
   const AppColors._();
 
   static const Color textSecondary = Colors.white70;
+  static const Color error = Color(0xFFFFB4AB);
+  static const Color controlBorder = Color(0xFF7B83A8);
   static const Color shadow = Colors.black54;
   static const Color webBackground = Color(0xFF0B0F19);
   static const Color background = Color(0xFF141838);

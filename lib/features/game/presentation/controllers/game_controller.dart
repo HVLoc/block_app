@@ -38,6 +38,8 @@ class GameController extends GetxController {
   final isBusy = false.obs;
   final isGameOver = false.obs;
   final errorMessage = RxnString();
+  int? selectedSlot;
+  String? moveHint;
   GameState state = GameState(
     board: List.generate(gridSize, (_) => List.filled(gridSize, null)),
     dock: const [null, null, null],
@@ -96,6 +98,8 @@ class GameController extends GetxController {
     if (isBusy.value || isLoading.value) return;
     isBusy.value = true;
     cancelDrag();
+    selectedSlot = null;
+    moveHint = null;
     switch (await _startNewGame.execute(state)) {
       case Success(:final data):
         if (isClosed) return;
@@ -125,6 +129,8 @@ class GameController extends GetxController {
     if (piece == null) return;
     final box = boardKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
+    selectedSlot = null;
+    moveHint = null;
     boardRectNotifier.value = box.localToGlobal(Offset.zero) & box.size;
     _dragRevision++;
     dragNotifier.value = DragInfo(
@@ -180,7 +186,59 @@ class GameController extends GetxController {
     update();
   }
 
-  Future<void> endDrag(DragEndDetails details) async {
+  void selectSlot(int slot) {
+    if (isBusy.value ||
+        isLoading.value ||
+        isGameOver.value ||
+        dragNotifier.value != null ||
+        state.dock[slot] == null) {
+      return;
+    }
+    selectedSlot = selectedSlot == slot ? null : slot;
+    moveHint = selectedSlot == null
+        ? null
+        : 'Chạm ô để đặt góc trên trái của khối.';
+    update();
+  }
+
+  Future<void> placeSelectedAt(
+    int row,
+    int col, {
+    bool reduceMotion = false,
+  }) async {
+    final slot = selectedSlot;
+    if (slot == null ||
+        isBusy.value ||
+        isLoading.value ||
+        isGameOver.value ||
+        dragNotifier.value != null) {
+      return;
+    }
+    final piece = state.dock[slot];
+    if (piece == null) return;
+    final box = boardKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null) {
+      boardRectNotifier.value = box.localToGlobal(Offset.zero) & box.size;
+    }
+    isBusy.value = true;
+    try {
+      final validation = await _canPlacePiece.execute(state, piece, row, col);
+      if (isClosed) return;
+      if (validation case Success(data: true)) {
+        await _commitMove(slot, piece, row, col, reduceMotion: reduceMotion);
+      } else {
+        moveHint = 'Không đủ chỗ ở đây. Hãy chọn ô khác.';
+        update();
+      }
+    } finally {
+      if (!isClosed) isBusy.value = false;
+    }
+  }
+
+  Future<void> endDrag(
+    DragEndDetails details, {
+    bool reduceMotion = false,
+  }) async {
     await _pendingDragUpdate;
     if (isClosed) return;
     final drag = dragNotifier.value;
@@ -190,27 +248,46 @@ class GameController extends GetxController {
     final col = drag.hoverCol;
     if (row == null || col == null || isBusy.value) return;
     isBusy.value = true;
-    switch (await _placePiece.execute(state, drag.slotIndex, row, col)) {
+    await _commitMove(
+      drag.slotIndex,
+      drag.piece,
+      row,
+      col,
+      reduceMotion: reduceMotion,
+    );
+    if (!isClosed) isBusy.value = false;
+  }
+
+  Future<void> _commitMove(
+    int slot,
+    Piece piece,
+    int row,
+    int col, {
+    required bool reduceMotion,
+  }) async {
+    switch (await _placePiece.execute(state, slot, row, col)) {
       case Success(:final data):
         if (isClosed) return;
-        await _animateMove(data, drag.piece, row, col);
+        selectedSlot = null;
+        moveHint = null;
+        await _animateMove(data, piece, row, col, reduceMotion: reduceMotion);
       case Failure(:final exception):
         if (isClosed) return;
         errorMessage.value = exception.message;
     }
-    if (!isClosed) isBusy.value = false;
   }
 
   Future<void> _animateMove(
     GameMove move,
     Piece piece,
     int row,
-    int col,
-  ) async {
+    int col, {
+    required bool reduceMotion,
+  }) async {
     _previewBoard = move.placedBoard;
     flashCells = move.flashCells;
     update();
-    if (flashCells.isNotEmpty) {
+    if (flashCells.isNotEmpty && !reduceMotion) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
     if (isClosed) return;
@@ -219,7 +296,7 @@ class GameController extends GetxController {
     flashCells = {};
     scoreNotifier.value = state.score;
     final rect = boardRectNotifier.value;
-    if (rect != null) {
+    if (rect != null && !reduceMotion) {
       final cellSize = rect.width / gridSize;
       popupNotifier.value = [
         ...popupNotifier.value,

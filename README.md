@@ -1,4 +1,41 @@
-# Block Blast Lite
+# Blocks
+
+## Tiêu chuẩn UI/UX
+
+Đã tích hợp [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
+riêng cho dự án tại `.agents/skills/ui-ux-pro-max/` (giấy phép MIT và nguồn
+upstream được lưu cùng skill). Codex có thể tự nhận skill ở lượt làm việc
+tiếp theo khi mở đúng thư mục dự án này.
+
+Trước khi sửa giao diện Flutter, đọc `SKILL.md` của skill và
+`design-system/blocks/MASTER.md`. Đây là chuẩn đã chọn riêng cho Blocks:
+Material 3 tối, nút chạm 48dp, khoảng cách 4/8dp, hỗ trợ chữ lớn,
+giảm chuyển động và nhãn hỗ trợ đọc màn hình.
+
+Ngoài kéo thả, có thể chạm chọn một khối rồi chạm ô muốn đặt góc trên trái.
+Chạm lại khối đang chọn để hủy chọn. Thao tác sai vị trí giữ nguyên khối để
+người chơi thử lại. Quy tắc tính điểm và định dạng lưu ván chơi không đổi.
+
+Tra cứu hướng dẫn theo stack Flutter bằng Python 3:
+
+```powershell
+python .agents/skills/ui-ux-pro-max/scripts/search.py "semantics text scaling" --stack flutter
+```
+
+Skill là công cụ phát triển cục bộ, không được đóng gói vào ứng dụng.
+Các thay đổi ở lượt này chưa được build thành AAB mới.
+
+## Chủ đề khối
+
+Nhấn nút bảng màu cạnh nút chơi lại để chọn **Cổ điển**, **Hình học** hoặc
+**Trái cây**. Mỗi thẻ có hình xem trước; lựa chọn được lưu tự động bằng khóa
+`blocks_theme` và được khôi phục khi mở lại app. Chủ đề chỉ đổi cách vẽ,
+không thay đổi màu nhận diện khối, luật chơi, điểm hoặc tiến trình.
+
+Các biểu tượng được vẽ trực tiếp bằng Canvas, không cần ảnh hay dependency
+mới. Board, vùng xem trước khi thả, dock và khối đang kéo dùng chung bộ vẽ.
+Nếu lưu thất bại, bộ chọn báo lỗi và giữ chủ đề trước đó để người chơi thử lại.
+Chức năng áp dụng cho bản game Flutter ở `lib/main.dart`.
 
 Game xếp khối Flutter, tổ chức theo `FLUTTER_STANDARDS.md` v2.1.
 

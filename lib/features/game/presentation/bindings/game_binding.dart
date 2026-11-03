@@ -1,3 +1,6 @@
+import 'package:block/features/appearance/data/theme_repository_impl.dart';
+import 'package:block/features/appearance/domain/theme_repository.dart';
+import 'package:block/features/appearance/presentation/theme_controller.dart';
 import 'package:block/features/game/data/datasources/game_local_data_source.dart';
 import 'package:block/features/game/data/repositories/game_repository_impl.dart';
 import 'package:block/features/game/domain/repositories/game_repository.dart';
@@ -16,6 +19,8 @@ class GameBinding extends Bindings {
   @override
   void dependencies() {
     Get
+      ..lazyPut<ThemeRepository>(() => ThemeRepositoryImpl(_preferences))
+      ..lazyPut(() => ThemeController(Get.find<ThemeRepository>()))
       ..lazyPut(() => GameLocalDataSource(_preferences))
       ..lazyPut<GameRepository>(
         () => GameRepositoryImpl(Get.find<GameLocalDataSource>()),

@@ -43,7 +43,11 @@ class _AnimatedScoreDisplayState extends State<AnimatedScoreDisplay>
 
   void _onScoreChanged() {
     if (!mounted) return;
-    _ctrl.forward(from: 0);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _ctrl.reset();
+    } else {
+      _ctrl.forward(from: 0);
+    }
     setState(() {});
   }
 
@@ -59,13 +63,18 @@ class _AnimatedScoreDisplayState extends State<AnimatedScoreDisplay>
     return AnimatedBuilder(
       animation: _scaleAnim,
       builder: (_, __) => Transform.scale(
-        scale: _scaleAnim.value,
-        child: Text(
-          '${widget.scoreNotifier.value}',
-          style: const TextStyle(
-            color: AppColors.scoreText,
-            fontSize: 46,
-            fontWeight: FontWeight.w900,
+        scale: MediaQuery.disableAnimationsOf(context) ? 1 : _scaleAnim.value,
+        child: Semantics(
+          label: 'Điểm: ${widget.scoreNotifier.value}',
+          liveRegion: true,
+          excludeSemantics: true,
+          child: Text(
+            '${widget.scoreNotifier.value}',
+            style: const TextStyle(
+              color: AppColors.scoreText,
+              fontSize: 46,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ),

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Block Blast!">
+    <meta name="apple-mobile-web-app-title" content="Blocks">
     <meta name="theme-color" content="#141838">
-    <title>Block Blast! - Ultra Lite (60FPS Máy Yếu)</title>
+    <title>Blocks</title>
     <style>
         * {
             box-sizing: border-box;
@@ -648,8 +648,8 @@
                 <pre id="repo-code-block" class="code-pre"># ==========================================
 # 1. FILE: pubspec.yaml (Không cần WebView!)
 # ==========================================
-name: block_blast_lite
-description: Block Blast Native Flutter Ultra-Smooth 60FPS
+name: blocks
+description: Blocks puzzle game
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -679,17 +679,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const BlockBlastLiteApp());
+  runApp(const BlocksApp());
 }
 
-class BlockBlastLiteApp extends StatelessWidget {
-  const BlockBlastLiteApp({super.key});
+class BlocksApp extends StatelessWidget {
+  const BlocksApp({super.key});
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Block Blast Lite',
-      home: BlockBlastGamePage(),
+      title: 'Blocks',
+      home: BlocksGamePage(),
     );
   }
 }
@@ -726,13 +726,13 @@ class DragInfo {
   });
 }
 
-class BlockBlastGamePage extends StatefulWidget {
-  const BlockBlastGamePage({super.key});
+class BlocksGamePage extends StatefulWidget {
+  const BlocksGamePage({super.key});
   @override
-  State&lt;BlockBlastGamePage&gt; createState() =&gt; _BlockBlastGamePageState();
+  State&lt;BlocksGamePage&gt; createState() =&gt; _BlocksGamePageState();
 }
 
-class _BlockBlastGamePageState extends State&lt;BlockBlastGamePage&gt; {
+class _BlocksGamePageState extends State&lt;BlocksGamePage&gt; {
   static const int gridSize = 8;
   static const List&lt;Color&gt; palette = [
     Color(0xFFEF4444), // Red

@@ -7,5 +7,5 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final preferences = await SharedPreferences.getInstance();
-  runApp(BlockBlastLiteApp(preferences: preferences));
+  runApp(BlocksApp(preferences: preferences));
 }

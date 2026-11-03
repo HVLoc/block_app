@@ -18,7 +18,7 @@
 
 Bản release dùng upload key riêng, không dùng debug key:
 
-- `android/upload-keystore.jks`: khóa upload, alias `upload`.
+- `android/upload-keystore.jks`: khóa upload, alias `locblocks`.
 - `android/key.properties`: đường dẫn khóa và mật khẩu ngẫu nhiên.
 
 Cả hai file đã được loại trừ bởi `android/.gitignore`. Sao lưu cả hai vào nơi

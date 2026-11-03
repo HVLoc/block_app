@@ -15,7 +15,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({'bb_best': 120});
     final preferences = await SharedPreferences.getInstance();
-    await tester.pumpWidget(BlockBlastLiteApp(preferences: preferences));
+    await tester.pumpWidget(BlocksApp(preferences: preferences));
     await tester.pumpAndSettle();
     expect(find.text('KỶ LỤC: 120'), findsOneWidget);
     expect(Get.isRegistered<GameController>(), isTrue);
@@ -52,7 +52,7 @@ void main() {
       }),
     });
     final preferences = await SharedPreferences.getInstance();
-    await tester.pumpWidget(BlockBlastLiteApp(preferences: preferences));
+    await tester.pumpWidget(BlocksApp(preferences: preferences));
     await tester.pumpAndSettle();
     final game = Get.find<GameController>();
     final slot = find.byKey(const ValueKey('game_dock_0_drag'));

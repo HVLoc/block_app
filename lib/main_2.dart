@@ -9,7 +9,5 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   final preferences = await SharedPreferences.getInstance();
-  runApp(
-    BlockBlastLiteApp(preferences: preferences, initialRoute: Routes.webGame),
-  );
+  runApp(BlocksApp(preferences: preferences, initialRoute: Routes.webGame));
 }

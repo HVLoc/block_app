@@ -1,4 +1,5 @@
 import 'package:block/core/theme/app_colors.dart';
+import 'package:block/core/theme/block_theme.dart';
 import 'package:block/features/game/presentation/models/drag_info.dart';
 import 'package:block/features/game/presentation/widgets/piece_painter.dart';
 import 'package:flutter/material.dart';
@@ -8,11 +9,13 @@ class DragLayer extends StatelessWidget {
     required this.dragNotifier,
     required this.boardRectNotifier,
     required this.gridSize,
+    this.theme = BlockTheme.classic,
     super.key,
   });
   final ValueNotifier<DragInfo?> dragNotifier;
   final ValueNotifier<Rect?> boardRectNotifier;
   final int gridSize;
+  final BlockTheme theme;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +40,7 @@ class DragLayer extends StatelessWidget {
                     size: Size(w, h),
                     painter: PiecePainter(
                       piece: drag.piece,
+                      theme: theme,
                       color: AppColors.piecePalette[drag.piece.colorIndex],
                     ),
                   ),

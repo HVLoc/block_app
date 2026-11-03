@@ -1,8 +1,15 @@
+import 'package:block/core/theme/block_decoration.dart';
+import 'package:block/core/theme/block_theme.dart';
 import 'package:block/features/game/domain/entities/piece.dart';
 import 'package:flutter/material.dart';
 
 class PiecePainter extends CustomPainter {
-  const PiecePainter({required this.piece, required this.color});
+  const PiecePainter({
+    required this.piece,
+    required this.color,
+    this.theme = BlockTheme.classic,
+  });
+  final BlockTheme theme;
   final Piece piece;
   final Color color;
 
@@ -25,6 +32,7 @@ class PiecePainter extends CustomPainter {
             RRect.fromRectAndRadius(rect, const Radius.circular(4)),
             paint,
           );
+          BlockDecoration.paint(canvas, rect, piece.colorIndex, theme);
         }
       }
     }
@@ -32,5 +40,7 @@ class PiecePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PiecePainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.piece != piece;
+      oldDelegate.color != color ||
+      oldDelegate.piece != piece ||
+      oldDelegate.theme != theme;
 }
